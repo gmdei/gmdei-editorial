@@ -8,6 +8,7 @@ import {
   AudiobookProject,
   GMDEI_OFFICIAL_WHATSAPP,
   formatAudioTime,
+  getAudioBlobUrlFromIndexedDb,
   withBasePath,
 } from '@/lib/audiobooks-config';
 import {
@@ -68,6 +69,38 @@ export default function ClientAudiobookPlayer({
   const pinStorageKey = `gmdei_audiobook_pin_unlocked_${book.slug}`;
 
   const currentChapter = book.chapters[chapterIndex] || book.chapters[0];
+  const [resolvedAudioSrc, setResolvedAudioSrc] = useState<string>('');
+
+  // Resolver la fuente de audio (soporta idb:// guardado en IndexedDB del navegador, rutas relativas o URLs externas)
+  useEffect(() => {
+    let active = true;
+    const rawSrc = currentChapter?.src || '';
+    if (!rawSrc) {
+      setResolvedAudioSrc('');
+      return;
+    }
+    if (rawSrc.startsWith('idb://')) {
+      const idbKey = rawSrc.replace('idb://', '');
+      getAudioBlobUrlFromIndexedDb(idbKey).then((blobUrl) => {
+        if (!active) return;
+        if (blobUrl) {
+          setResolvedAudioSrc(blobUrl);
+        } else {
+          // Si se abrió en otro dispositivo donde no está en IndexedDB, intentar la ruta publicada en GitHub Pages
+          setResolvedAudioSrc(
+            withBasePath(
+              `/audiolibros/${book.slug}/${currentChapter.fileName || `capitulo-${currentChapter.number}.mp3`}`
+            )
+          );
+        }
+      });
+    } else {
+      setResolvedAudioSrc(withBasePath(rawSrc));
+    }
+    return () => {
+      active = false;
+    };
+  }, [book.slug, currentChapter]);
 
   // 1. Restaurar estado guardado en localStorage (capítulo, segundo exacto, velocidad, notas y PIN)
   useEffect(() => {
@@ -475,7 +508,7 @@ export default function ClientAudiobookPlayer({
       {/* Elemento HTMLAudioElement nativo ultra ligero (funciona con pantalla bloqueada en iOS/Android) */}
       <audio
         ref={audioRef}
-        src={withBasePath(currentChapter?.src || '')}
+        src={resolvedAudioSrc || undefined}
         preload="metadata"
         playsInline
         onLoadedMetadata={(e) => {

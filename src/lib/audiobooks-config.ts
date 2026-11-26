@@ -193,6 +193,178 @@ export const DEFAULT_AUDIOBOOKS_CATALOG: AudiobookProject[] = [
 
 const AUDIOBOOKS_STORAGE_KEY = 'gmdei_audiobooks_catalog_v1';
 
+const INDEXED_DB_NAME = 'gmdei_audiobooks_files_db';
+const INDEXED_DB_STORE = 'audio_files';
+
+function openAudioFilesDb(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    if (typeof window === 'undefined' || !('indexedDB' in window)) {
+      reject(new Error('IndexedDB no disponible'));
+      return;
+    }
+    const req = window.indexedDB.open(INDEXED_DB_NAME, 1);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(INDEXED_DB_STORE)) {
+        db.createObjectStore(INDEXED_DB_STORE);
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+/**
+ * Guarda un archivo de audio o portada en IndexedDB del navegador para que siga
+ * reproduciéndose incluso después de recargar la página o abrir el enlace en otra pestaña.
+ */
+export async function saveAudioBlobToIndexedDb(key: string, blob: Blob): Promise<void> {
+  try {
+    const db = await openAudioFilesDb();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(INDEXED_DB_STORE, 'readwrite');
+      tx.objectStore(INDEXED_DB_STORE).put(blob, key);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch {
+    // Fallback silencioso
+  }
+}
+
+export async function getAudioBlobUrlFromIndexedDb(key: string): Promise<string | null> {
+  try {
+    const db = await openAudioFilesDb();
+    const blob = await new Promise<Blob | undefined>((resolve, reject) => {
+      const tx = db.transaction(INDEXED_DB_STORE, 'readonly');
+      const req = tx.objectStore(INDEXED_DB_STORE).get(key);
+      req.onsuccess = () => resolve(req.result as Blob | undefined);
+      req.onerror = () => reject(req.error);
+    });
+    if (blob instanceof Blob) {
+      return URL.createObjectURL(blob);
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Sincroniza un libro recién creado o editado directamente con el repositorio
+ * de GitHub (`public/audiolibros/audiobooks.json` y archivos `.mp3` en `public/audiolibros/[slug]/`)
+ * usando un GitHub Personal Access Token para que el link corto `#slug` funcione
+ * en cualquier teléfono o navegador sin que caiga en el libro de ejemplo.
+ */
+export async function publishAudiobookToGitHubRepo(params: {
+  githubToken: string;
+  owner?: string;
+  repo?: string;
+  catalog: AudiobookProject[];
+  bookSlug: string;
+  localFiles?: Record<string, File>;
+  onProgress?: (msg: string) => void;
+}): Promise<{ ok: boolean; message: string }> {
+  const owner = params.owner || 'gmdei';
+  const repo = params.repo || 'gmdei-editorial';
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${params.githubToken.trim()}`,
+    Accept: 'application/vnd.github+json',
+    'Content-Type': 'application/json',
+  };
+
+  const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
+    let binary = '';
+    const bytes = new Uint8Array(buffer);
+    const chunkSize = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      const chunk = bytes.subarray(i, i + chunkSize);
+      binary += String.fromCharCode.apply(null, Array.from(chunk));
+    }
+    return btoa(binary);
+  };
+
+  const upsertGitHubFile = async (repoPath: string, base64Content: string, commitMsg: string) => {
+    const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${repoPath}`;
+    let existingSha: string | undefined;
+    try {
+      const getRes = await fetch(apiUrl, { headers });
+      if (getRes.ok) {
+        const info = await getRes.json();
+        existingSha = info.sha;
+      }
+    } catch {
+      // Archivo nuevo
+    }
+
+    const putRes = await fetch(apiUrl, {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify({
+        message: commitMsg,
+        content: base64Content,
+        ...(existingSha ? { sha: existingSha } : {}),
+      }),
+    });
+
+    if (!putRes.ok) {
+      const errText = await putRes.text();
+      throw new Error(`Error al subir ${repoPath}: ${putRes.status} ${errText}`);
+    }
+  };
+
+  try {
+    // 1. Subir cada archivo .mp3 arrastrado a public/audiolibros/[slug]/[fileName]
+    if (params.localFiles) {
+      const entries = Object.entries(params.localFiles);
+      for (let i = 0; i < entries.length; i++) {
+        const [fileName, fileObj] = entries[i];
+        params.onProgress?.(
+          `Subiendo audio (${i + 1}/${entries.length}): ${fileName} a GitHub...`
+        );
+        const buf = await fileObj.arrayBuffer();
+        const b64 = arrayBufferToBase64(buf);
+        await upsertGitHubFile(
+          `public/audiolibros/${params.bookSlug}/${fileName}`,
+          b64,
+          `feat(audiolibro): subir audio ${fileName} en ${params.bookSlug}`
+        );
+      }
+    }
+
+    // 2. Actualizar public/audiolibros/audiobooks.json con el catálogo limpio
+    params.onProgress?.('Actualizando catálogo public/audiolibros/audiobooks.json en GitHub...');
+    const cleanCatalog = params.catalog.map((b) => ({
+      ...b,
+      chapters: b.chapters.map((c) => ({
+        ...c,
+        src:
+          c.src.startsWith('blob:') || c.src.startsWith('idb://')
+            ? `/audiolibros/${b.slug}/${c.fileName || `capitulo-${c.number}.mp3`}`
+            : c.src,
+      })),
+    }));
+    const jsonString = JSON.stringify(cleanCatalog, null, 2);
+    const jsonBase64 = btoa(unescape(encodeURIComponent(jsonString)));
+
+    await upsertGitHubFile(
+      'public/audiolibros/audiobooks.json',
+      jsonBase64,
+      `feat(audiolibros): publicar/actualizar ${params.bookSlug} en audiobooks.json`
+    );
+
+    return {
+      ok: true,
+      message: `✓ Publicado en GitHub (gmdei/gmdei-editorial). En ~1 minuto el enlace corto #${params.bookSlug} estará actualizado en todos los dispositivos.`,
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      message: err instanceof Error ? err.message : 'No se pudo publicar en GitHub.',
+    };
+  }
+}
+
 /**
  * Carga el catálogo combinando el archivo estático /audiolibros/audiobooks.json
  * con los proyectos creados/editados en localStorage desde el panel gmDEI Studio,
@@ -240,21 +412,29 @@ export function saveAudiobooksCatalogToLocal(catalog: AudiobookProject[]): void 
 }
 
 /**
- * Codifica un proyecto con URLs externas en Base64 URL-safe para que el enlace
- * compartido por WhatsApp funcione en cualquier dispositivo de inmediato incluso
- * antes de hacer commit de audiobooks.json al repositorio.
+ * Codifica un proyecto en Base64 URL-safe compacto para que el enlace compartido por WhatsApp
+ * (#slug~PAYLOAD o ?d=PAYLOAD) abra SIEMPRE el libro exacto en cualquier dispositivo,
+ * incluso si el editor aún no ha hecho push de audiobooks.json a GitHub.
  */
 export function encodeInstantSharePayload(book: AudiobookProject): string {
   try {
+    // Si la portada es una imagen base64 gigante (> 2KB), usamos la ruta relativa en el enlace para mantener el URL corto
+    const safeCover =
+      book.coverUrl && book.coverUrl.startsWith('data:') && book.coverUrl.length > 2000
+        ? '/assets/portada-1.jpg'
+        : book.coverUrl;
+
     const compact: AudiobookProject = {
       ...book,
+      coverUrl: safeCover,
       chapters: book.chapters.map((c) => ({
         id: c.id,
         number: c.number,
         title: c.title,
-        src: c.src.startsWith('blob:')
-          ? `/audiolibros/${book.slug}/${c.fileName || `capitulo-${c.number}.mp3`}`
-          : c.src,
+        src:
+          c.src.startsWith('blob:') || c.src.startsWith('idb://')
+            ? `/audiolibros/${book.slug}/${c.fileName || `capitulo-${c.number}.mp3`}`
+            : c.src,
         durationSeconds: c.durationSeconds,
         fileName: c.fileName,
       })),

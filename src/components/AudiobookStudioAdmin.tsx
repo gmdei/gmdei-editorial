@@ -10,6 +10,8 @@ import {
   GMDEI_AUDIOBOOK_ADMIN_PIN,
   encodeInstantSharePayload,
   formatAudioTime,
+  publishAudiobookToGitHubRepo,
+  saveAudioBlobToIndexedDb,
   saveAudiobooksCatalogToLocal,
   slugifyAudiobookTitle,
   withBasePath,
@@ -81,6 +83,15 @@ export default function AudiobookStudioAdmin({
   const [copiedSlug, setCopiedSlug] = useState<string>('');
   const [isBuildingZip, setIsBuildingZip] = useState<boolean>(false);
 
+  // Sincronización directa con GitHub Pages desde el navegador
+  const [githubToken, setGithubToken] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('gmdei_github_pat_v1') || '';
+    }
+    return '';
+  });
+  const [isPublishingGitHub, setIsPublishingGitHub] = useState<boolean>(false);
+
   const computedSlug = slugifyAudiobookTitle(title);
 
   const handleLoadBookIntoEditor = (book: AudiobookProject) => {
@@ -130,39 +141,73 @@ export default function AudiobookStudioAdmin({
   };
 
   // Arrastrar o seleccionar múltiples archivos .mp3 para generar capítulos automáticamente
-  const handleMp3FilesDropOrSelect = (files: FileList | null) => {
+  const handleMp3FilesDropOrSelect = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
     const fileArray = Array.from(files).filter((f) =>
       /\.(mp3|m4a|wav|ogg|mp4)$/i.test(f.name)
     );
     if (fileArray.length === 0) return;
 
+    const currentSlug = slugifyAudiobookTitle(title);
     const newFileMap = { ...localMp3Files };
     const addedChapters: AudiobookChapter[] = [];
 
-    fileArray.forEach((file, idx) => {
+    for (let idx = 0; idx < fileArray.length; idx++) {
+      const file = fileArray[idx];
       const chapNum = chapters.length + idx + 1;
       const cleanName = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]+/g, ' ');
-      const blobUrl = URL.createObjectURL(file);
       const chapId = `cap-${Date.now()}-${idx}`;
+      const idbKey = `${currentSlug}/${file.name}`;
+
+      // Guardar el archivo real en IndexedDB para que funcione al abrir el enlace en nuevas pestañas
+      await saveAudioBlobToIndexedDb(idbKey, file);
       newFileMap[file.name] = file;
 
       addedChapters.push({
         id: chapId,
         number: chapNum,
         title: `Capítulo ${chapNum} · ${cleanName}`,
-        src: blobUrl, // Permite reproducción inmediata en el navegador; al exportar JSON usa /audiolibros/[slug]/[fileName]
+        src: `idb://${idbKey}`,
         fileName: file.name,
         durationSeconds: 120,
       });
-    });
+    }
+
+    const nextChapters = [...chapters, ...addedChapters].map((c, i) => ({
+      ...c,
+      number: i + 1,
+    }));
 
     setLocalMp3Files(newFileMap);
-    setChapters((prev) =>
-      [...prev, ...addedChapters].map((c, i) => ({ ...c, number: i + 1 }))
+    setChapters(nextChapters);
+
+    // Auto-guardar inmediatamente en el catálogo para que al copiar el link ya exista el libro nuevo
+    const autoProject: AudiobookProject = {
+      slug: currentSlug,
+      title: title.trim() || 'Audiolibro gmDEI',
+      author: author.trim() || 'Autor gmDEI',
+      narrator: narrator.trim() || 'Editora gmDEI',
+      coverUrl: coverUrl.trim() || '/assets/portada-1.jpg',
+      clientPin: clientPin.trim(),
+      description: description.trim(),
+      chapters: nextChapters,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    const existingIdx = catalog.findIndex(
+      (b) => b.slug === editingSlug || b.slug === currentSlug
     );
+    const updatedCatalog =
+      existingIdx >= 0
+        ? catalog.map((b, i) => (i === existingIdx ? autoProject : b))
+        : [autoProject, ...catalog];
+
+    saveAudiobooksCatalogToLocal(updatedCatalog);
+    onUpdateCatalog(updatedCatalog);
+    setEditingSlug(currentSlug);
+
     setStatusMessage(
-      `✓ Se agregaron ${addedChapters.length} archivo(s) de audio a la lista de capítulos.`
+      `✓ Se agregaron y guardaron ${addedChapters.length} capítulo(s) en "${autoProject.title}".`
     );
   };
 
@@ -208,10 +253,9 @@ export default function AudiobookStudioAdmin({
     );
   };
 
-  const handleSaveAudiobookProject = (e: React.FormEvent) => {
-    e.preventDefault();
-    const slug = editingSlug || computedSlug;
-    const newProject: AudiobookProject = {
+  const buildCurrentDraftBook = (): AudiobookProject => {
+    const slug = computedSlug;
+    return {
       slug,
       title: title.trim() || 'Audiolibro gmDEI',
       author: author.trim() || 'Autor gmDEI',
@@ -226,20 +270,30 @@ export default function AudiobookStudioAdmin({
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
+  };
 
-    const existingIdx = catalog.findIndex((b) => b.slug === slug);
+  const persistBookToCatalog = (bookToSave: AudiobookProject): AudiobookProject[] => {
+    const existingIdx = catalog.findIndex(
+      (b) => b.slug === editingSlug || b.slug === bookToSave.slug
+    );
     let updatedCatalog: AudiobookProject[];
     if (existingIdx >= 0) {
-      updatedCatalog = catalog.map((b, i) => (i === existingIdx ? newProject : b));
+      updatedCatalog = catalog.map((b, i) => (i === existingIdx ? bookToSave : b));
     } else {
-      updatedCatalog = [newProject, ...catalog];
+      updatedCatalog = [bookToSave, ...catalog];
     }
-
     saveAudiobooksCatalogToLocal(updatedCatalog);
     onUpdateCatalog(updatedCatalog);
-    setEditingSlug(slug);
+    setEditingSlug(bookToSave.slug);
+    return updatedCatalog;
+  };
+
+  const handleSaveAudiobookProject = (e: React.FormEvent) => {
+    e.preventDefault();
+    const newProject = buildCurrentDraftBook();
+    persistBookToCatalog(newProject);
     setStatusMessage(
-      `✓ Audiolibro "${newProject.title}" guardado. Ya puedes copiar el enlace único del cliente o exportar audiobooks.json.`
+      `✓ Audiolibro "${newProject.title}" (#${newProject.slug}) guardado correctamente.`
     );
   };
 
@@ -249,18 +303,50 @@ export default function AudiobookStudioAdmin({
     const base = process.env.NEXT_PUBLIC_BASE_PATH || '';
     if (includeInstantData) {
       const payload = encodeInstantSharePayload(book);
-      return `${origin}${base}/audiolibros/?d=${encodeURIComponent(payload)}#${encodeURIComponent(
-        book.slug
-      )}`;
+      return `${origin}${base}/audiolibros/#${encodeURIComponent(book.slug)}~${payload}`;
     }
     return `${origin}${base}/audiolibros/#${encodeURIComponent(book.slug)}`;
   };
 
   const handleCopyClientLink = async (book: AudiobookProject, includeInstantData = false) => {
-    const url = buildClientShareUrl(book, includeInstantData);
+    // Si el usuario está editando este libro en el formulario, guardar sus cambios antes de copiar el enlace
+    let targetBook = book;
+    if (editingSlug === book.slug || computedSlug === book.slug) {
+      targetBook = buildCurrentDraftBook();
+      persistBookToCatalog(targetBook);
+    }
+    const url = buildClientShareUrl(targetBook, includeInstantData);
     await navigator.clipboard.writeText(url);
-    setCopiedSlug(book.slug + (includeInstantData ? '-instant' : ''));
+    setCopiedSlug(targetBook.slug + (includeInstantData ? '-instant' : ''));
+    setStatusMessage(
+      `✓ Enlace copiado para "${targetBook.title}": ${url}`
+    );
     setTimeout(() => setCopiedSlug(''), 3000);
+  };
+
+  const handleDirectPublishToGitHub = async () => {
+    if (!githubToken.trim()) {
+      setStatusMessage(
+        'Ingresa tu Token de GitHub (Personal Access Token) en el campo de abajo para publicar con 1 clic.'
+      );
+      return;
+    }
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('gmdei_github_pat_v1', githubToken.trim());
+    }
+    const currentBook = buildCurrentDraftBook();
+    const updatedCat = persistBookToCatalog(currentBook);
+
+    setIsPublishingGitHub(true);
+    const res = await publishAudiobookToGitHubRepo({
+      githubToken,
+      catalog: updatedCat,
+      bookSlug: currentBook.slug,
+      localFiles: localMp3Files,
+      onProgress: (msg) => setStatusMessage(msg),
+    });
+    setIsPublishingGitHub(false);
+    setStatusMessage(res.message);
   };
 
   // Exportar audiobooks.json limpio listo para commit en /public/audiolibros/audiobooks.json
@@ -577,22 +663,50 @@ export default function AudiobookStudioAdmin({
             {/* BLOQUE FLUJO HÍBRIDO GITHUB PAGES / WEB ESTÁTICA */}
             <section className="border-2 border-[#151515] bg-[#EFEFEA] p-6 shadow-[0_14px_34px_rgb(30_30_26/0.22)]">
               <span className="type-label text-[10px] text-[#E93416]">
-                FLUJO HÍBRIDO · GITHUB PAGES & CLOUD STORAGE
+                SINCRONIZACIÓN CON GITHUB PAGES
               </span>
               <h2 className="type-poster mt-1 text-xl text-[#07517A]">
-                EXPORTAR PAQUETE PARA REPOSITORIO
+                PUBLICAR EN GITHUB CON 1 CLIC O EXPORTAR ZIP
               </h2>
               <p className="mt-2 text-xs leading-relaxed text-[#45453F]">
-                Puedes enlazar URLs externas directas (Cloudflare R2, S3) para entrega instantánea,
-                o descargar el archivo <code>audiobooks.json</code> y el paquete ZIP listo para
-                hacer <code>commit</code> en <code>public/audiolibros/[slug]/</code>.
+                Para que el enlace corto <code>#{computedSlug}</code> funcione en el teléfono de tu
+                cliente con los archivos <code>.mp3</code> que arrastraste, publícalo directamente a
+                tu repositorio <code>gmdei/gmdei-editorial</code> o descarga el paquete ZIP:
               </p>
 
-              <div className="mt-4 flex flex-col gap-2.5">
+              <div className="mt-3 space-y-2 border border-[#151515]/20 bg-white p-3">
+                <label
+                  htmlFor="ghPatInput"
+                  className="block font-mono text-[10px] font-bold uppercase text-[#07517A]"
+                >
+                  Token de GitHub (se guarda en tu navegador para publicar con 1 clic):
+                </label>
+                <input
+                  id="ghPatInput"
+                  type="password"
+                  value={githubToken}
+                  onChange={(e) => setGithubToken(e.target.value)}
+                  placeholder="ghp_... o github_pat_..."
+                  className="w-full border border-[#151515] px-2.5 py-1.5 font-mono text-xs"
+                />
+                <button
+                  type="button"
+                  onClick={handleDirectPublishToGitHub}
+                  disabled={isPublishingGitHub}
+                  className="btn-brutalist btn-brutalist--primary w-full justify-center gap-2 py-2.5 text-xs"
+                >
+                  <Upload className="h-4 w-4" />
+                  {isPublishingGitHub
+                    ? 'Subiendo audios y audiobooks.json a GitHub...'
+                    : `Publicar "${title}" + MP3s en GitHub ahora`}
+                </button>
+              </div>
+
+              <div className="mt-3 flex flex-col gap-2">
                 <button
                   type="button"
                   onClick={handleDownloadAudiobooksJson}
-                  className="btn-brutalist w-full justify-start gap-2 py-2.5 text-xs"
+                  className="btn-brutalist w-full justify-start gap-2 py-2 text-xs"
                 >
                   <FileJson className="h-4 w-4 text-[#07517A]" />
                   Descargar audiobooks.json actualizado
@@ -602,14 +716,12 @@ export default function AudiobookStudioAdmin({
                   type="button"
                   onClick={handleDownloadRepoPackageZip}
                   disabled={isBuildingZip}
-                  className="btn-brutalist btn-brutalist--primary w-full justify-start gap-2 py-2.5 text-xs"
+                  className="btn-brutalist w-full justify-start gap-2 py-2 text-xs"
                 >
-                  <FolderArchive className="h-4 w-4" />
+                  <FolderArchive className="h-4 w-4 text-[#E93416]" />
                   {isBuildingZip
                     ? 'Empaquetando carpeta /audiolibros/[slug]/...'
-                    : `Descargar ZIP listo para commit (/audiolibros/${
-                        editingSlug || computedSlug
-                      }/)`}
+                    : `Descargar ZIP (/audiolibros/${computedSlug}/)`}
                 </button>
               </div>
             </section>
@@ -822,13 +934,39 @@ export default function AudiobookStudioAdmin({
               </div>
             </div>
 
-            <div className="mt-6 flex flex-wrap items-center justify-end gap-3 border-t-2 border-[#151515]/20 pt-5">
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t-2 border-[#151515]/20 pt-5">
+              <button
+                type="button"
+                onClick={() => {
+                  const savedBook = buildCurrentDraftBook();
+                  persistBookToCatalog(savedBook);
+                  handleCopyClientLink(savedBook, false);
+                }}
+                className="btn-brutalist gap-2 px-5 py-3.5 text-xs"
+              >
+                <Copy className="h-4 w-4 text-[#07517A]" />
+                Guardar y Copiar Enlace Corto (#{computedSlug})
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const savedBook = buildCurrentDraftBook();
+                  persistBookToCatalog(savedBook);
+                  onPreviewBook(savedBook);
+                }}
+                className="btn-brutalist gap-2 px-5 py-3.5 text-xs"
+              >
+                <Headphones className="h-4 w-4 text-[#E93416]" />
+                Guardar y Abrir en Reproductor
+              </button>
+
               <button
                 type="submit"
                 className="btn-brutalist btn-brutalist--primary gap-2 px-6 py-3.5 text-xs"
               >
                 <Save className="h-4 w-4" />
-                Guardar Audiolibro y Generar Enlace de Cliente
+                Guardar Audiolibro
               </button>
             </div>
           </form>
