@@ -5,6 +5,7 @@ import Link from 'next/link';
 import gsap from 'gsap';
 import BookJourneyScroll from '@/components/BookJourneyScroll';
 import DynamicQuoter from '@/components/DynamicQuoter';
+import { withBasePath } from '@/lib/audiobooks-config';
 
 export default function HomePage() {
   const heroRef = useRef<HTMLElement | null>(null);
@@ -115,7 +116,7 @@ export default function HomePage() {
             className="justify-self-center flex items-center gap-2.5"
           >
             <img
-              src="/assets/gmdei.png"
+              src={withBasePath('/assets/gmdei.png')}
               alt="gmDEI Editorial"
               className="h-10 w-auto object-contain"
             />
@@ -154,7 +155,7 @@ export default function HomePage() {
           aria-hidden="true"
         >
           <video
-            src="/videos/indesing.mp4"
+            src={withBasePath('/videos/indesing.mp4')}
             autoPlay
             muted
             loop

@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { EDITORIAL_STAGES_11, EditorialStageDefinition } from '@/lib/editorial-data';
+import { withBasePath } from '@/lib/audiobooks-config';
 import { ArrowLeft, ArrowRight, Film, Pause, Play, Sparkles } from 'lucide-react';
 
 /**
@@ -38,7 +39,7 @@ function StageVideoPlayer({
       <video
         ref={videoRef}
         key={stage.videoUrl + '-' + stage.id}
-        src={stage.videoUrl}
+        src={withBasePath(stage.videoUrl)}
         muted
         loop
         playsInline
@@ -452,7 +453,7 @@ function InteractiveFormatsAndRulesSection() {
               <div className="relative aspect-[16/11] w-full overflow-hidden bg-[#151515]">
                 <video
                   key={selectedClip.video}
-                  src={selectedClip.video}
+                  src={withBasePath(selectedClip.video)}
                   autoPlay
                   muted
                   loop

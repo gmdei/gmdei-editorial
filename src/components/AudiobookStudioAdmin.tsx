@@ -12,6 +12,7 @@ import {
   formatAudioTime,
   saveAudiobooksCatalogToLocal,
   slugifyAudiobookTitle,
+  withBasePath,
 } from '@/lib/audiobooks-config';
 import {
   ArrowDown,
@@ -242,18 +243,17 @@ export default function AudiobookStudioAdmin({
     );
   };
 
-  // Generar enlace del cliente 100% compatible con GitHub Pages (?libro=slug y #/audiolibros/slug)
+  // Generar enlace corto del cliente 100% compatible con GitHub Pages (ej. tudominio.com/audiolibros/#slug)
   const buildClientShareUrl = (book: AudiobookProject, includeInstantData = false): string => {
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const base = process.env.NEXT_PUBLIC_BASE_PATH || '';
     if (includeInstantData) {
       const payload = encodeInstantSharePayload(book);
-      return `${origin}/audiolibros?libro=${encodeURIComponent(book.slug)}&data=${encodeURIComponent(
-        payload
-      )}#/audiolibros/${encodeURIComponent(book.slug)}`;
+      return `${origin}${base}/audiolibros/?d=${encodeURIComponent(payload)}#${encodeURIComponent(
+        book.slug
+      )}`;
     }
-    return `${origin}/audiolibros?libro=${encodeURIComponent(
-      book.slug
-    )}#/audiolibros/${encodeURIComponent(book.slug)}`;
+    return `${origin}${base}/audiolibros/#${encodeURIComponent(book.slug)}`;
   };
 
   const handleCopyClientLink = async (book: AudiobookProject, includeInstantData = false) => {
@@ -325,7 +325,7 @@ export default function AudiobookStudioAdmin({
         <header className="border-b border-[#151515]/20 bg-[#EFEFEA] px-6 py-4">
           <div className="mx-auto flex max-w-5xl items-center justify-between">
             <Link href="/" className="flex items-center gap-3">
-              <img src="/assets/gmdei.png" alt="gmDEI Editorial" className="h-9 w-auto" />
+              <img src={withBasePath('/assets/gmdei.png')} alt="gmDEI Editorial" className="h-9 w-auto" />
               <span className="type-label text-[#07517A]">gmDEI Studio · Audiolibros</span>
             </Link>
             <Link href="/" className="link-wipe type-label text-xs text-[#151515]">
@@ -420,7 +420,7 @@ export default function AudiobookStudioAdmin({
           <div className="flex items-center gap-3">
             <Link href="/">
               <img
-                src="/assets/gmdei.png"
+                src={withBasePath('/assets/gmdei.png')}
                 alt="gmDEI"
                 className="h-9 w-auto bg-[#F7F4EE] px-2 py-1"
               />
@@ -499,7 +499,7 @@ export default function AudiobookStudioAdmin({
                     >
                       <div className="flex items-start gap-3">
                         <img
-                          src={book.coverUrl || '/assets/portada-1.jpg'}
+                          src={withBasePath(book.coverUrl || '/assets/portada-1.jpg')}
                           alt={book.title}
                           className="h-20 w-16 shrink-0 border border-[#151515] object-cover"
                         />

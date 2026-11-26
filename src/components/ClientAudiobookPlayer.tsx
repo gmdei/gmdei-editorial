@@ -8,6 +8,7 @@ import {
   AudiobookProject,
   GMDEI_OFFICIAL_WHATSAPP,
   formatAudioTime,
+  withBasePath,
 } from '@/lib/audiobooks-config';
 import {
   BookmarkPlus,
@@ -152,9 +153,10 @@ export default function ClientAudiobookPlayer({
       return;
     }
 
-    const absoluteCoverUrl = book.coverUrl.startsWith('http')
-      ? book.coverUrl
-      : `${window.location.origin}${book.coverUrl.startsWith('/') ? '' : '/'}${book.coverUrl}`;
+    const resolvedCover = withBasePath(book.coverUrl || '/assets/portada-1.jpg');
+    const absoluteCoverUrl = resolvedCover.startsWith('http')
+      ? resolvedCover
+      : `${window.location.origin}${resolvedCover.startsWith('/') ? '' : '/'}${resolvedCover}`;
 
     try {
       navigator.mediaSession.metadata = new MediaMetadata({
@@ -392,7 +394,7 @@ export default function ClientAudiobookPlayer({
         <header className="border-b border-[#151515]/20 bg-[#EFEFEA] px-6 py-4">
           <div className="mx-auto flex max-w-3xl items-center justify-between">
             <Link href="/" className="flex items-center gap-3">
-              <img src="/assets/gmdei.png" alt="gmDEI Editorial" className="h-9 w-auto" />
+              <img src={withBasePath('/assets/gmdei.png')} alt="gmDEI Editorial" className="h-9 w-auto" />
               <span className="type-label text-[#07517A]">Audiolibros</span>
             </Link>
             {onOpenStudioAdmin && (
@@ -473,7 +475,7 @@ export default function ClientAudiobookPlayer({
       {/* Elemento HTMLAudioElement nativo ultra ligero (funciona con pantalla bloqueada en iOS/Android) */}
       <audio
         ref={audioRef}
-        src={currentChapter?.src}
+        src={withBasePath(currentChapter?.src || '')}
         preload="metadata"
         playsInline
         onLoadedMetadata={(e) => {
@@ -502,7 +504,7 @@ export default function ClientAudiobookPlayer({
         <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-4 sm:px-6">
           <Link href="/" className="flex items-center gap-3">
             <img
-              src="/assets/gmdei.png"
+              src={withBasePath('/assets/gmdei.png')}
               alt="gmDEI Editorial"
               className="h-9 w-auto object-contain"
             />
@@ -543,7 +545,7 @@ export default function ClientAudiobookPlayer({
             <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-start">
               <div className="relative h-44 w-36 shrink-0 -rotate-1 border-2 border-[#151515] bg-white p-1.5 shadow-lg">
                 <img
-                  src={book.coverUrl || '/assets/portada-1.jpg'}
+                  src={withBasePath(book.coverUrl || '/assets/portada-1.jpg')}
                   alt={`Portada de ${book.title}`}
                   className="h-full w-full object-cover"
                 />
@@ -931,7 +933,7 @@ export default function ClientAudiobookPlayer({
         <div className="mx-auto flex max-w-5xl flex-col items-center justify-between gap-4 sm:flex-row">
           <div className="flex items-center gap-3">
             <img
-              src="/assets/gmdei.png"
+              src={withBasePath('/assets/gmdei.png')}
               alt="gmDEI Editorial"
               className="h-7 w-auto object-contain"
             />

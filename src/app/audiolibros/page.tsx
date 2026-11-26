@@ -32,8 +32,8 @@ export default function AudiolibrosPage() {
       if (typeof window === 'undefined') return;
 
       const params = new URLSearchParams(window.location.search);
-      const querySlug = params.get('libro') || params.get('book') || '';
-      const instantDataParam = params.get('data') || '';
+      const querySlug = params.get('libro') || params.get('book') || params.get('l') || '';
+      const instantDataParam = params.get('data') || params.get('d') || '';
 
       // 1. Si el enlace incluye payload instantáneo (?data=...), decodificarlo de inmediato
       if (instantDataParam) {
@@ -108,12 +108,11 @@ export default function AudiolibrosPage() {
         setActiveBook(book);
         setViewMode('player');
         if (typeof window !== 'undefined') {
+          const base = process.env.NEXT_PUBLIC_BASE_PATH || '';
           window.history.replaceState(
             null,
             '',
-            `/audiolibros?libro=${encodeURIComponent(book.slug)}#/audiolibros/${encodeURIComponent(
-              book.slug
-            )}`
+            `${base}/audiolibros/#${encodeURIComponent(book.slug)}`
           );
         }
       }}

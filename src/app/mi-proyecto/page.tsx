@@ -19,6 +19,7 @@ import {
   saveOrUpdateProject,
   setActiveSession,
 } from '@/lib/supabase';
+import { withBasePath } from '@/lib/audiobooks-config';
 import {
   AlertTriangle,
   ArrowLeft,
@@ -152,7 +153,7 @@ export default function MiProyectoPage() {
         <header className="border-b border-[#DCE4E4] bg-white">
           <div className="mx-auto flex h-20 max-w-6xl items-center justify-between px-6">
             <Link href="/" className="flex items-center gap-3">
-              <img src="/assets/gmdei.png" alt="gmDEI" className="h-10 w-auto" />
+              <img src={withBasePath('/assets/gmdei.png')} alt="gmDEI" className="h-10 w-auto" />
               <span className="text-xs font-bold uppercase tracking-widest text-[#07517A]">
                 Portal Privado del Cliente
               </span>
@@ -499,7 +500,7 @@ export default function MiProyectoPage() {
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6 lg:px-10">
           <div className="flex items-center gap-4">
             <Link href="/">
-              <img src="/assets/gmdei.png" alt="gmDEI" className="h-10 w-auto" />
+              <img src={withBasePath('/assets/gmdei.png')} alt="gmDEI" className="h-10 w-auto" />
             </Link>
             <div className="border-l border-[#DCE4E4] pl-4">
               <span className="block text-[11px] font-bold uppercase tracking-widest text-[#E93416]">
@@ -937,7 +938,7 @@ export default function MiProyectoPage() {
 
                     {stage10Validation.isValid ? (
                       <a
-                        href={project.finalFilesUrl || '/ATENEO_OCOENO_FINAL.pdf'}
+                        href={withBasePath(project.finalFilesUrl || '/ATENEO_OCOENO_FINAL.pdf')}
                         download={`ARTE_FINAL_${project.code}.pdf`}
                         className="inline-flex items-center gap-2 rounded-xl bg-[#28765A] px-5 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-[#28765A]/90"
                       >

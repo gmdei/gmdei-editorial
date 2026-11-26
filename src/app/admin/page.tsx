@@ -18,6 +18,7 @@ import {
   savePricingSettings,
   setActiveSession,
 } from '@/lib/supabase';
+import { withBasePath } from '@/lib/audiobooks-config';
 import {
   ArrowLeft,
   CheckCircle2,
@@ -230,7 +231,7 @@ export default function AdminDashboardPage() {
           <div className="mx-auto flex h-20 max-w-6xl items-center justify-between px-6">
             <Link href="/" className="flex items-center gap-3">
               <img
-                src="/assets/gmdei.png"
+                src={withBasePath('/assets/gmdei.png')}
                 alt="gmDEI"
                 className="h-10 w-auto rounded bg-[#F7F4EE] px-2 py-1"
               />
@@ -334,7 +335,7 @@ export default function AdminDashboardPage() {
           <div className="flex items-center gap-4">
             <Link href="/">
               <img
-                src="/assets/gmdei.png"
+                src={withBasePath('/assets/gmdei.png')}
                 alt="gmDEI"
                 className="h-10 w-auto rounded bg-[#F7F4EE] px-2 py-1"
               />

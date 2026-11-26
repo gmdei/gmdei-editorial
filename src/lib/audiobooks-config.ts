@@ -21,6 +21,28 @@ export const GMDEI_AUDIOBOOK_ADMIN_PASSWORD =
 export const GMDEI_OFFICIAL_WHATSAPP =
   process.env.NEXT_PUBLIC_GMDEI_WHATSAPP || '59170000000';
 
+/**
+ * Prefijo de ruta base (ej. "/gmdei-editorial" en GitHub Pages o "" en dominio propio / localhost)
+ */
+export const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH || '';
+
+export function withBasePath(path: string): string {
+  if (!path) return path;
+  if (
+    path.startsWith('http://') ||
+    path.startsWith('https://') ||
+    path.startsWith('data:') ||
+    path.startsWith('blob:')
+  ) {
+    return path;
+  }
+  const normalized = path.startsWith('/') ? path : `/${path}`;
+  if (BASE_PATH && normalized.startsWith(`${BASE_PATH}/`)) {
+    return normalized;
+  }
+  return `${BASE_PATH}${normalized}`;
+}
+
 export interface AudiobookChapter {
   id: string;
   number: number;
@@ -182,7 +204,7 @@ export async function loadAudiobooksCatalog(): Promise<AudiobookProject[]> {
 
   if (typeof window !== 'undefined') {
     try {
-      const res = await fetch('/audiolibros/audiobooks.json', { cache: 'no-store' });
+      const res = await fetch(withBasePath('/audiolibros/audiobooks.json'), { cache: 'no-store' });
       if (res.ok) {
         const json = (await res.json()) as AudiobookProject[];
         if (Array.isArray(json) && json.length > 0) {

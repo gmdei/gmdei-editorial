@@ -15,6 +15,7 @@ import {
   fetchPricingSettings,
   registerClientAndCreateProjectAfterPayment,
 } from '@/lib/supabase';
+import { withBasePath } from '@/lib/audiobooks-config';
 import {
   AlertCircle,
   CheckCircle2,
@@ -159,8 +160,8 @@ export default function DynamicQuoter() {
       } else {
         const url =
           sampleType === 'docx'
-            ? '/assets/muestra-manuscrito.docx'
-            : '/assets/muestra-libro.pdf';
+            ? withBasePath('/assets/muestra-manuscrito.docx')
+            : withBasePath('/assets/muestra-libro.pdf');
         const res = await fetch(url);
         const blob = await res.blob();
         const fileName =
