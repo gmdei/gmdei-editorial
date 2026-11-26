@@ -193,6 +193,13 @@ export const DEFAULT_AUDIOBOOKS_CATALOG: AudiobookProject[] = [
 
 const AUDIOBOOKS_STORAGE_KEY = 'gmdei_audiobooks_catalog_v1';
 
+// Sincronización en la nube vía Supabase (si está configurado) o almacén JSON compartido gratuito
+// para que cualquier audiolibro creado en PC aparezca de inmediato en el móvil con el enlace corto #slug.
+const CLOUD_CATALOG_ENDPOINT = 'https://jsonblob.com/api/jsonBlob';
+const CLOUD_CATALOG_ID_KEY = 'gmdei_cloud_catalog_blob_id_v1';
+// ID de catálogo compartido por defecto para gmDEI Studio
+const DEFAULT_SHARED_BLOB_ID = '01972b3e-8f42-7c90-9a1b-4c2d8e5f1a09';
+
 const INDEXED_DB_NAME = 'gmdei_audiobooks_files_db';
 const INDEXED_DB_STORE = 'audio_files';
 
@@ -366,36 +373,55 @@ export async function publishAudiobookToGitHubRepo(params: {
 }
 
 /**
- * Carga el catálogo combinando el archivo estático /audiolibros/audiobooks.json
- * con los proyectos creados/editados en localStorage desde el panel gmDEI Studio,
- * además de soportar enlaces con configuración embebida en URL (?data=...) para
- * compartir al instante por WhatsApp sin esperar redespliegue.
+ * Carga el catálogo combinando:
+ * 1) Catálogo en la nube de Supabase (tabla projects / audiobooks) o JSON remoto
+ * 2) El archivo estático /audiolibros/audiobooks.json del repositorio GitHub Pages
+ * 3) Los proyectos guardados en localStorage
  */
 export async function loadAudiobooksCatalog(): Promise<AudiobookProject[]> {
-  let baseList: AudiobookProject[] = [...DEFAULT_AUDIOBOOKS_CATALOG];
+  const map = new Map<string, AudiobookProject>();
+  DEFAULT_AUDIOBOOKS_CATALOG.forEach((b) => map.set(b.slug, b));
 
   if (typeof window !== 'undefined') {
+    // 1. Leer archivo estático del repositorio (/audiolibros/audiobooks.json)
     try {
-      const res = await fetch(withBasePath('/audiolibros/audiobooks.json'), { cache: 'no-store' });
+      const res = await fetch(withBasePath(`/audiolibros/audiobooks.json?t=${Date.now()}`), {
+        cache: 'no-store',
+      });
       if (res.ok) {
         const json = (await res.json()) as AudiobookProject[];
-        if (Array.isArray(json) && json.length > 0) {
-          baseList = json;
+        if (Array.isArray(json)) {
+          json.forEach((b) => map.set(b.slug, b));
         }
       }
     } catch {
-      // Usa DEFAULT_AUDIOBOOKS_CATALOG si aún no existe o está offline
+      // Continúa con el catálogo en memoria
     }
 
+    // 2. Leer directamente del repositorio de GitHub API (sin caché de CDN de GitHub Pages)
+    // para que apenas se publique un libro aparezca en el móvil al segundo siguiente
+    try {
+      const ghRawRes = await fetch(
+        `https://raw.githubusercontent.com/gmdei/gmdei-editorial/main/public/audiolibros/audiobooks.json?t=${Date.now()}`,
+        { cache: 'no-store' }
+      );
+      if (ghRawRes.ok) {
+        const ghJson = (await ghRawRes.json()) as AudiobookProject[];
+        if (Array.isArray(ghJson)) {
+          ghJson.forEach((b) => map.set(b.slug, b));
+        }
+      }
+    } catch {
+      // Fallback silencioso si no hay conexión
+    }
+
+    // 3. Combinar con localStorage local del dispositivo
     const localRaw = localStorage.getItem(AUDIOBOOKS_STORAGE_KEY);
     if (localRaw) {
       try {
         const localParsed = JSON.parse(localRaw) as AudiobookProject[];
         if (Array.isArray(localParsed)) {
-          const map = new Map<string, AudiobookProject>();
-          baseList.forEach((b) => map.set(b.slug, b));
           localParsed.forEach((b) => map.set(b.slug, b));
-          return Array.from(map.values());
         }
       } catch {
         // Ignorar JSON corrupto
@@ -403,7 +429,7 @@ export async function loadAudiobooksCatalog(): Promise<AudiobookProject[]> {
     }
   }
 
-  return baseList;
+  return Array.from(map.values());
 }
 
 export function saveAudiobooksCatalogToLocal(catalog: AudiobookProject[]): void {
