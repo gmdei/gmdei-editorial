@@ -1,0 +1,258 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #C9C9C4;
+  --bg-deep: #BDBDB7;
+  --paper: #F7F4EE;
+  --sticker: #EFEFEA;
+  --sticker-ink: #151515;
+  --blue: #07517A;
+  --orange: #E93416;
+  --accent: #E93416;
+  --accent-ink: #FFFFFF;
+  --ink: #151515;
+  --muted: #45453F;
+  --line: rgba(21, 21, 21, 0.22);
+  --overlay: #121212;
+  --overlay-ink: #ECECE8;
+  --gutter: clamp(1.25rem, 2.6vw, 2.5rem);
+  --section-y: clamp(4rem, 6vw, 6.5rem);
+  --ease-out-soft: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+html {
+  scroll-behavior: smooth;
+  background-color: var(--bg);
+  color: var(--ink);
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--ink);
+  font-family: Arial, Helvetica, sans-serif;
+  line-height: 1.5;
+  min-height: 100svh;
+  overflow-x: clip;
+}
+
+/* Textura fija de grano / ruido analógico idéntica a biegajaca-sztuka.pl */
+body::after {
+  content: "";
+  z-index: 50;
+  pointer-events: none;
+  opacity: 0.14;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 1.2 -0.1'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  position: fixed;
+  inset: 0;
+}
+
+/* Tipografía Poster (Archivo Black Italic / Impact Condensed style de biegajaca-sztuka.pl) */
+.type-poster {
+  font-family: "Arial Black", Impact, "Helvetica Neue", Arial, sans-serif;
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+  font-style: italic;
+  font-weight: 900;
+  font-stretch: condensed;
+  line-height: 0.96;
+  overflow-wrap: break-word;
+}
+
+.type-label {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.type-meta {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.75rem;
+}
+
+.font-editorial {
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+/* Stickers sobre muro estilo biegajaca-sztuka.pl */
+.wall-sticker {
+  background: var(--sticker);
+  color: var(--sticker-ink);
+  padding: 0.05em 0.18em 0.02em;
+  display: inline-block;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.24);
+}
+
+.sticker-card {
+  background-color: var(--sticker);
+  color: var(--sticker-ink);
+  box-shadow: 0 14px 34px rgba(30, 30, 26, 0.22);
+}
+
+.sticker-hint {
+  background-color: var(--sticker);
+  color: var(--sticker-ink);
+  box-shadow: 0 8px 20px rgba(30, 30, 26, 0.2);
+  padding: 0.45rem 0.85rem;
+  rotate: -2deg;
+}
+
+/* Botones cuadrados de borde 1.5px estilo biegajaca-sztuka.pl */
+.btn-brutalist {
+  white-space: nowrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+  background-color: var(--sticker);
+  border: 1.5px solid var(--ink);
+  transition: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease,
+    transform 0.16s var(--ease-out-soft);
+  justify-content: center;
+  align-items: center;
+  padding: 0.9rem 1.4rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  display: inline-flex;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .btn-brutalist:hover {
+    color: var(--sticker);
+    background-color: var(--ink);
+  }
+}
+
+.btn-brutalist:active {
+  transform: scale(0.97);
+}
+
+.btn-brutalist--primary {
+  color: #ffffff;
+  background-color: var(--orange);
+  border-color: var(--orange);
+}
+
+@media (hover: hover) {
+  .btn-brutalist--primary:hover {
+    color: var(--orange);
+    background-color: var(--ink);
+    border-color: var(--ink);
+  }
+}
+
+/* Subrayado animado link-wipe */
+.link-wipe {
+  padding-block: 0.25rem;
+  display: inline-block;
+  position: relative;
+}
+
+.link-wipe::after {
+  content: "";
+  transform-origin: 100%;
+  height: 1.5px;
+  transition: transform 0.35s var(--ease-out-soft);
+  background: currentColor;
+  position: absolute;
+  bottom: 0.1rem;
+  left: 0;
+  right: 0;
+  transform: scaleX(0);
+}
+
+@media (hover: hover) {
+  .link-wipe:hover::after {
+    transform-origin: 0;
+    transform: scaleX(1);
+  }
+}
+
+/* Modern Web Guidance: Forms & Accessibility rules */
+input,
+select,
+textarea {
+  font: inherit;
+  font-size: max(1rem, 1em);
+  box-sizing: border-box;
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+button:focus-visible,
+a:focus-visible,
+summary:focus-visible {
+  outline: 2.5px solid var(--orange);
+  outline-offset: 3px;
+}
+
+input:user-invalid,
+textarea:user-invalid,
+select:user-invalid {
+  border-color: #E93416;
+  background-color: #FFF8F6;
+}
+
+/* Modern Web Guidance: Native <details> & <summary> Accordion Rules */
+details.editorial-disclosure > summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 0.65ch;
+  cursor: pointer;
+}
+
+details.editorial-disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+
+details.editorial-disclosure > summary::before {
+  content: "";
+  inline-size: 0.95em;
+  block-size: 0.95em;
+  flex-shrink: 0;
+  background-color: currentColor;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") no-repeat center / contain;
+  rotate: -90deg;
+}
+
+details.editorial-disclosure[open] > summary::before {
+  rotate: 0deg;
+}
+
+details.editorial-disclosure::details-content {
+  interpolate-size: allow-keywords;
+  overflow: clip;
+  contain: layout;
+}
+
+details.editorial-disclosure:not([open])::details-content {
+  block-size: 0;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  details.editorial-disclosure > summary::before {
+    transition: rotate 0.2s ease;
+  }
+
+  details.editorial-disclosure::details-content {
+    transition: block-size, content-visibility, display;
+    transition-duration: 0.28s;
+    transition-timing-function: ease-in-out;
+    transition-behavior: allow-discrete;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .mockup-scene-layer {
+    animation: none !important;
+    transition: none !important;
+  }
+}

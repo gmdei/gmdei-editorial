@@ -1,0 +1,68 @@
+[
+  {
+    "slug": "el-jardin-de-las-voces",
+    "title": "El jardín de las voces (Crónicas de Ocoa)",
+    "author": "Camila Mendoza",
+    "narrator": "Estudio de Voz gmDEI",
+    "coverUrl": "/assets/portada-1.jpg",
+    "clientPin": "",
+    "description": "Edición sonora masterizada por Editora gmDEI. Escucha cada capítulo, valida la entonación y marca cualquier observación en el segundo exacto.",
+    "chapters": [
+      {
+        "id": "cap-1",
+        "number": 1,
+        "title": "Capítulo I · La memoria del valle",
+        "src": "/videos/audio-libro.mp4",
+        "durationSeconds": 45,
+        "fileName": "01-la-memoria-del-valle.mp3"
+      },
+      {
+        "id": "cap-2",
+        "number": 2,
+        "title": "Capítulo II · Cartas desde la imprenta",
+        "src": "/videos/libro-final.mp4",
+        "durationSeconds": 38,
+        "fileName": "02-cartas-desde-la-imprenta.mp3"
+      },
+      {
+        "id": "cap-3",
+        "number": 3,
+        "title": "Capítulo III · El eco de las montañas",
+        "src": "/videos/ebook.mp4",
+        "durationSeconds": 52,
+        "fileName": "03-el-eco-de-las-montanas.mp3"
+      }
+    ],
+    "createdAt": "2026-11-18T12:00:00.000Z",
+    "updatedAt": "2026-11-26T09:00:00.000Z"
+  },
+  {
+    "slug": "cronicas-del-ateneo",
+    "title": "Crónicas del Ateneo Ocoeño",
+    "author": "Gregorio Martínez",
+    "narrator": "Archivo Sonoro gmDEI",
+    "coverUrl": "/assets/portada-2.jpg",
+    "clientPin": "1234",
+    "description": "Audiolibro con PIN de cliente activo (PIN de demostración: 1234). Incluye control de velocidad y notas vinculadas al segundo exacto.",
+    "chapters": [
+      {
+        "id": "ateneo-1",
+        "number": 1,
+        "title": "Prólogo · Fundación y primeras voces",
+        "src": "/videos/audio-libro.mp4",
+        "durationSeconds": 45,
+        "fileName": "01-prologo.mp3"
+      },
+      {
+        "id": "ateneo-2",
+        "number": 2,
+        "title": "Capítulo I · Los años del taller editorial",
+        "src": "/videos/indesing.mp4",
+        "durationSeconds": 42,
+        "fileName": "02-taller-editorial.mp3"
+      }
+    ],
+    "createdAt": "2026-11-20T14:00:00.000Z",
+    "updatedAt": "2026-11-26T09:00:00.000Z"
+  }
+]
