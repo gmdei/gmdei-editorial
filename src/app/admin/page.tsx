@@ -162,10 +162,10 @@ export default function AdminDashboardPage() {
       const updatedAddendums = p.addendums.map((a) =>
         a.id === addendumId
           ? {
-              ...a,
-              status: 'approved_paid' as const,
-              approvedAt: new Date().toISOString(),
-            }
+            ...a,
+            status: 'approved_paid' as const,
+            approvedAt: new Date().toISOString(),
+          }
           : a
       );
 
@@ -662,11 +662,10 @@ export default function AdminDashboardPage() {
                 <button
                   type="button"
                   onClick={handleToggleCoverApproval}
-                  className={`mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-xs font-bold text-white transition ${
-                    selectedProject.coverApproved
+                  className={`mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-xs font-bold text-white transition ${selectedProject.coverApproved
                       ? 'bg-[#28765A] hover:bg-[#28765A]/90'
                       : 'bg-[#E93416] hover:bg-[#d12c10]'
-                  }`}
+                    }`}
                 >
                   <CheckCircle2 className="h-4 w-4" />
                   {selectedProject.coverApproved
